@@ -1,0 +1,8 @@
+[
+  { "type": "sample", "delayMs": 300, "hr": 70, "rr": [860.0] },
+  { "type": "sample", "delayMs": 300, "hr": 70, "rr": [875.0] },
+  { "type": "sample", "delayMs": 300, "hr": 69, "rr": [890.0] },
+  { "type": "sample", "delayMs": 300, "hr": 68, "rr": [910.0] },
+  { "type": "sample", "delayMs": 300, "hr": 68, "rr": [920.0] },
+  { "type": "sample", "delayMs": 300, "hr": 67, "rr": [940.0] }
+]

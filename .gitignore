@@ -1,0 +1,8 @@
+.gradle/
+.gradle-dist/
+.jdk17/
+local.properties
+**/build/
+*.iml
+.idea/
+captures/
