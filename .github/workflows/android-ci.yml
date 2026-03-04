@@ -197,6 +197,10 @@ jobs:
             FIRST_FAILED_TASK="not found"
           fi
           echo "::error title=First failed Gradle task::$FIRST_FAILED_TASK"
+          while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            echo "::error title=Kotlin compile detail::$line"
+          done < <(grep -m5 -E "^e: | error: " connected-android-test.log || true)
           echo "Last 30 log lines:"
           tail -n 30 connected-android-test.log
 
