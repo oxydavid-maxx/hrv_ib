@@ -164,21 +164,23 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 1200
           script: |
-            set -o pipefail
-            : > connected-android-test.log
-            adb wait-for-device 2>&1 | tee -a connected-android-test.log || true
-            adb shell settings put global window_animation_scale 0 2>&1 | tee -a connected-android-test.log || true
-            adb shell settings put global transition_animation_scale 0 2>&1 | tee -a connected-android-test.log || true
-            adb shell settings put global animator_duration_scale 0 2>&1 | tee -a connected-android-test.log || true
-            adb devices 2>&1 | tee -a connected-android-test.log || true
-            adb shell getprop ro.build.version.release 2>&1 | tee -a connected-android-test.log || true
-            adb shell getprop ro.build.version.sdk 2>&1 | tee -a connected-android-test.log || true
-            set +e
-            ./gradlew --no-daemon --stacktrace --info connectedDebugAndroidTest 2>&1 | tee -a connected-android-test.log
-            GRADLE_EXIT=${PIPESTATUS[0]}
-            set -e
-            adb logcat -d | tail -n 300 2>&1 | tee -a connected-android-test.log || true
-            exit $GRADLE_EXIT
+            bash -lc '
+              set -o pipefail
+              : > connected-android-test.log
+              adb wait-for-device 2>&1 | tee -a connected-android-test.log || true
+              adb shell settings put global window_animation_scale 0 2>&1 | tee -a connected-android-test.log || true
+              adb shell settings put global transition_animation_scale 0 2>&1 | tee -a connected-android-test.log || true
+              adb shell settings put global animator_duration_scale 0 2>&1 | tee -a connected-android-test.log || true
+              adb devices 2>&1 | tee -a connected-android-test.log || true
+              adb shell getprop ro.build.version.release 2>&1 | tee -a connected-android-test.log || true
+              adb shell getprop ro.build.version.sdk 2>&1 | tee -a connected-android-test.log || true
+              set +e
+              ./gradlew --no-daemon --stacktrace --info connectedDebugAndroidTest 2>&1 | tee -a connected-android-test.log
+              GRADLE_EXIT=${PIPESTATUS[0]}
+              set -e
+              adb logcat -d | tail -n 300 2>&1 | tee -a connected-android-test.log || true
+              exit $GRADLE_EXIT
+            '
 
       - name: Upload connected-android-test log
         if: always()
