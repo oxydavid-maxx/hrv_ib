@@ -8,23 +8,26 @@ INSTALL_DIR="$DIST_DIR/gradle-$GRADLE_VERSION"
 JDK_DIR="$DIR/.jdk17"
 JDK_ARCHIVE="$JDK_DIR/jdk17.tar.gz"
 
-if [ ! -x "$JDK_DIR/bin/java" ]; then
-  mkdir -p "$JDK_DIR"
-  if [ ! -f "$JDK_ARCHIVE" ]; then
-    echo "Downloading JDK 17..."
-    curl -fL "https://api.adoptium.net/v3/binary/latest/17/ga/linux/x64/jdk/hotspot/normal/eclipse?project=jdk" -o "$JDK_ARCHIVE"
+if [ -n "${JAVA_HOME:-}" ] && [ -x "${JAVA_HOME}/bin/java" ]; then
+  export PATH="$JAVA_HOME/bin:$PATH"
+else
+  if [ ! -x "$JDK_DIR/bin/java" ]; then
+    mkdir -p "$JDK_DIR"
+    if [ ! -f "$JDK_ARCHIVE" ]; then
+      echo "Downloading JDK 17..."
+      curl -fL "https://api.adoptium.net/v3/binary/latest/17/ga/linux/x64/jdk/hotspot/normal/eclipse?project=jdk" -o "$JDK_ARCHIVE"
+    fi
+    echo "Extracting JDK 17..."
+    tar -xzf "$JDK_ARCHIVE" -C "$JDK_DIR"
+    FIRST_DIR="$(ls "$JDK_DIR" | head -n 1)"
+    if [ -d "$JDK_DIR/$FIRST_DIR" ]; then
+      mv "$JDK_DIR/$FIRST_DIR"/* "$JDK_DIR"/
+      rmdir "$JDK_DIR/$FIRST_DIR"
+    fi
   fi
-  echo "Extracting JDK 17..."
-  tar -xzf "$JDK_ARCHIVE" -C "$JDK_DIR"
-  FIRST_DIR="$(ls "$JDK_DIR" | head -n 1)"
-  if [ -d "$JDK_DIR/$FIRST_DIR" ]; then
-    mv "$JDK_DIR/$FIRST_DIR"/* "$JDK_DIR"/
-    rmdir "$JDK_DIR/$FIRST_DIR"
-  fi
+  export JAVA_HOME="$JDK_DIR"
+  export PATH="$JAVA_HOME/bin:$PATH"
 fi
-
-export JAVA_HOME="$JDK_DIR"
-export PATH="$JAVA_HOME/bin:$PATH"
 
 if [ ! -d "$INSTALL_DIR" ]; then
   mkdir -p "$DIST_DIR"
