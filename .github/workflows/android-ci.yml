@@ -156,31 +156,40 @@ jobs:
           sudo udevadm trigger --name-match=kvm
 
       - name: Connected tests on emulator (API 34)
-        uses: ReactiveCircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          arch: x86_64
-          target: google_apis
-          disable-animations: true
-          emulator-boot-timeout: 1200
-          script: |
-            bash -lc '
-              set -o pipefail
-              : > connected-android-test.log
-              adb wait-for-device 2>&1 | tee -a connected-android-test.log || true
-              adb shell settings put global window_animation_scale 0 2>&1 | tee -a connected-android-test.log || true
-              adb shell settings put global transition_animation_scale 0 2>&1 | tee -a connected-android-test.log || true
-              adb shell settings put global animator_duration_scale 0 2>&1 | tee -a connected-android-test.log || true
-              adb devices 2>&1 | tee -a connected-android-test.log || true
-              adb shell getprop ro.build.version.release 2>&1 | tee -a connected-android-test.log || true
-              adb shell getprop ro.build.version.sdk 2>&1 | tee -a connected-android-test.log || true
-              set +e
-              ./gradlew --no-daemon --stacktrace --info connectedDebugAndroidTest 2>&1 | tee -a connected-android-test.log
-              GRADLE_EXIT=${PIPESTATUS[0]}
-              set -e
-              adb logcat -d | tail -n 300 2>&1 | tee -a connected-android-test.log || true
-              exit $GRADLE_EXIT
-            '
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > connected-android-test.log
+          AVDMANAGER="${SDKMANAGER%sdkmanager}avdmanager"
+          if [ ! -x "$AVDMANAGER" ]; then
+            AVDMANAGER="$(command -v avdmanager || true)"
+          fi
+          if [ -z "$AVDMANAGER" ] || [ ! -x "$AVDMANAGER" ]; then
+            echo "avdmanager not found" | tee -a connected-android-test.log
+            exit 1
+          fi
+          yes "no" | "$AVDMANAGER" create avd -n ci-api34 -k "system-images;android-34;google_apis;x86_64" --force 2>&1 | tee -a connected-android-test.log
+          "${ANDROID_SDK_ROOT}/emulator/emulator" -avd ci-api34 -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -accel off > emulator-stdout.log 2>&1 &
+          adb wait-for-device 2>&1 | tee -a connected-android-test.log || true
+          for _ in {1..60}; do
+            boot="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')"
+            if [ "$boot" = "1" ]; then break; fi
+            sleep 5
+          done
+          adb shell settings put global window_animation_scale 0 2>&1 | tee -a connected-android-test.log || true
+          adb shell settings put global transition_animation_scale 0 2>&1 | tee -a connected-android-test.log || true
+          adb shell settings put global animator_duration_scale 0 2>&1 | tee -a connected-android-test.log || true
+          adb devices 2>&1 | tee -a connected-android-test.log || true
+          adb shell getprop ro.build.version.release 2>&1 | tee -a connected-android-test.log || true
+          adb shell getprop ro.build.version.sdk 2>&1 | tee -a connected-android-test.log || true
+          set +e
+          ./gradlew --no-daemon --stacktrace --info connectedDebugAndroidTest 2>&1 | tee -a connected-android-test.log
+          GRADLE_EXIT=${PIPESTATUS[0]}
+          set -e
+          adb logcat -d | tail -n 300 2>&1 | tee -a connected-android-test.log || true
+          cat emulator-stdout.log | tail -n 200 >> connected-android-test.log || true
+          adb emu kill 2>&1 | tee -a connected-android-test.log || true
+          exit $GRADLE_EXIT
 
       - name: Upload connected-android-test log
         if: always()
