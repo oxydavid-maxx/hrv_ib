@@ -136,10 +136,10 @@ jobs:
         run: |
           "$SDKMANAGER" --install \
             "platform-tools" \
-            "platforms;android-30" \
+            "platforms;android-34" \
             "build-tools;35.0.0" \
             "emulator" \
-            "system-images;android-30;google_apis;x86_64"
+            "system-images;android-34;google_apis;x86_64"
 
       - name: Ensure gradlew is executable
         run: chmod +x ./gradlew
@@ -155,17 +155,39 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Connected tests on emulator (API 30)
+      - name: Connected tests on emulator (API 34)
         uses: ReactiveCircus/android-emulator-runner@v2
         with:
-          api-level: 30
+          api-level: 34
           arch: x86_64
           target: google_apis
           disable-linux-hw-accel: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
           disable-animations: true
           emulator-boot-timeout: 1200
-          script: ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace --info
+          script: |
+            set -o pipefail
+            mkdir -p hrv_ib
+            adb wait-for-device
+            adb shell settings put global window_animation_scale 0
+            adb shell settings put global transition_animation_scale 0
+            adb shell settings put global animator_duration_scale 0
+            adb devices 2>&1 | tee -a hrv_ib/connected-android-test.log
+            adb shell getprop ro.build.version.release 2>&1 | tee -a hrv_ib/connected-android-test.log
+            adb shell getprop ro.build.version.sdk 2>&1 | tee -a hrv_ib/connected-android-test.log
+            set +e
+            ./gradlew --no-daemon --stacktrace --info connectedDebugAndroidTest 2>&1 | tee -a hrv_ib/connected-android-test.log
+            GRADLE_EXIT=${PIPESTATUS[0]}
+            set -e
+            adb logcat -d | tail -n 300 2>&1 | tee -a hrv_ib/connected-android-test.log
+            exit $GRADLE_EXIT
+
+      - name: Upload connected-android-test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: connected-android-test-log
+          path: hrv_ib/connected-android-test.log
 
       - name: Upload androidTest reports
         if: always()
@@ -173,11 +195,5 @@ jobs:
         with:
           name: reports-androidTest
           path: |
-            hrv_ib/**/build/reports/**
-            hrv_ib/**/build/test-results/**
+            hrv_ib/**/build/reports/androidTests/**
             hrv_ib/**/build/outputs/androidTest-results/**
-            **/build/reports/**
-            **/build/reports/androidTests/**
-            **/build/test-results/**
-            **/build/outputs/androidTest-results/**
-            **/build/outputs/androidTest-results/connected/**
