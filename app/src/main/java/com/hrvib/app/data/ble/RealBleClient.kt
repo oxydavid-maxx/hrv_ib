@@ -73,7 +73,7 @@ class RealBleClient(
     @SuppressLint("MissingPermission")
     override suspend fun startScan() {
         if (!hasScanPermission()) {
-            _connectionState.value = ConnectionState.PermissionDenied("BLUETOOTH_SCAN denied")
+            _connectionState.value = ConnectionState.Disconnected
             return
         }
         val scanner = adapter?.bluetoothLeScanner ?: return
@@ -93,7 +93,7 @@ class RealBleClient(
     @SuppressLint("MissingPermission")
     override suspend fun connect(deviceId: String) {
         if (!hasConnectPermission()) {
-            _connectionState.value = ConnectionState.PermissionDenied("BLUETOOTH_CONNECT denied")
+            _connectionState.value = ConnectionState.Disconnected
             return
         }
         stopScan()
@@ -125,7 +125,7 @@ class RealBleClient(
         @SuppressLint("MissingPermission")
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
             if (!hasConnectPermission()) {
-                _connectionState.value = ConnectionState.PermissionDenied("BLUETOOTH_CONNECT denied")
+                _connectionState.value = ConnectionState.Disconnected
                 return
             }
             if (newState == BluetoothProfile.STATE_CONNECTED) {
@@ -139,7 +139,7 @@ class RealBleClient(
         @SuppressLint("MissingPermission")
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
             if (!hasConnectPermission()) {
-                _connectionState.value = ConnectionState.PermissionDenied("BLUETOOTH_CONNECT denied")
+                _connectionState.value = ConnectionState.Disconnected
                 return
             }
             val characteristic = gatt.getService(hrServiceUuid)?.getCharacteristic(hrMeasurementUuid) ?: return
