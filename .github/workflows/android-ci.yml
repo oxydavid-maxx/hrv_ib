@@ -161,6 +161,8 @@ jobs:
           api-level: 30
           arch: x86_64
           target: google_apis
+          disable-linux-hw-accel: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
           disable-animations: true
           emulator-boot-timeout: 1200
           script: ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace --info
