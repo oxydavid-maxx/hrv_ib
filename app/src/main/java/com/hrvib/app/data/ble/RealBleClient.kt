@@ -114,9 +114,18 @@ class RealBleClient(
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             val device = result.device ?: return
-            val name = device.name ?: return
+            val name = try {
+                device.name
+            } catch (_: SecurityException) {
+                null
+            } ?: return
+            val address = try {
+                device.address
+            } catch (_: SecurityException) {
+                null
+            } ?: return
             if (!name.contains("polar", ignoreCase = true)) return
-            discovered[device.address] = BleDevice(device.address, name, result.rssi)
+            discovered[address] = BleDevice(address, name, result.rssi)
             _scanResults.value = discovered.values.toList()
         }
     }
@@ -130,7 +139,11 @@ class RealBleClient(
             }
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 _connectionState.value = ConnectionState.Connected
-                gatt.discoverServices()
+                try {
+                    gatt.discoverServices()
+                } catch (_: SecurityException) {
+                    _connectionState.value = ConnectionState.Disconnected
+                }
             } else {
                 _connectionState.value = ConnectionState.Disconnected
             }
@@ -143,10 +156,19 @@ class RealBleClient(
                 return
             }
             val characteristic = gatt.getService(hrServiceUuid)?.getCharacteristic(hrMeasurementUuid) ?: return
-            gatt.setCharacteristicNotification(characteristic, true)
+            try {
+                gatt.setCharacteristicNotification(characteristic, true)
+            } catch (_: SecurityException) {
+                _connectionState.value = ConnectionState.Disconnected
+                return
+            }
             val descriptor = characteristic.getDescriptor(cccdUuid) ?: return
             descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-            gatt.writeDescriptor(descriptor)
+            try {
+                gatt.writeDescriptor(descriptor)
+            } catch (_: SecurityException) {
+                _connectionState.value = ConnectionState.Disconnected
+            }
         }
 
         override fun onCharacteristicChanged(
