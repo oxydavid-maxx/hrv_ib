@@ -1,6 +1,5 @@
 package com.hrvib.app
 
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -17,13 +16,13 @@ class AppUiTest {
 
     @Test
     fun homeScreenRendersCharts() {
-        composeRule.onNodeWithTag("scatter_count").assertExists()
-        composeRule.onNodeWithTag("timeseries_count").assertExists()
+        composeRule.onNodeWithTag("scatter_count").fetchSemanticsNode()
+        composeRule.onNodeWithTag("timeseries_count").fetchSemanticsNode()
     }
 
     @Test
     fun canOpenDeviceScreen() {
         composeRule.onNodeWithText("Device").performClick()
-        composeRule.onNodeWithTag("connection_status").assertExists()
+        composeRule.onNodeWithTag("connection_status").fetchSemanticsNode()
     }
 }
