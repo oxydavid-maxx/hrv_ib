@@ -25,7 +25,7 @@ class HrvMathTest {
     }
 
     @Test
-    fun artifactRejectionDropsOutOfRangeAnd20PercentJumps() {
+    fun artifactRejectionDropsOutOfRangeValues() {
         val rr = listOf(
             HrvMath.TimedRr(1, 800.0),
             HrvMath.TimedRr(2, 250.0),
@@ -34,7 +34,19 @@ class HrvMathTest {
             HrvMath.TimedRr(5, 2200.0)
         )
         val cleaned = HrvMath.rejectArtifacts(rr)
-        assertThat(cleaned.map { it.rrMs }).containsNoneOf(250.0, 2200.0, 1200.0)
+        assertThat(cleaned.map { it.rrMs }).containsNoneOf(250.0, 2200.0)
+    }
+
+    @Test
+    fun artifactRejectionDropsSuddenJumpWithoutStableNeighbors() {
+        val rr = listOf(
+            HrvMath.TimedRr(1, 800.0),
+            HrvMath.TimedRr(2, 1100.0),
+            HrvMath.TimedRr(3, 900.0),
+            HrvMath.TimedRr(4, 760.0)
+        )
+        val cleaned = HrvMath.rejectArtifacts(rr)
+        assertThat(cleaned.map { it.rrMs }).doesNotContain(1100.0)
     }
 
     @Test

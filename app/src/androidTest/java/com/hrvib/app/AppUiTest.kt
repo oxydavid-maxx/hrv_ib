@@ -84,6 +84,16 @@ class AppUiTest {
     }
 
     @Test
+    fun sparseRrShowsInsufficientWindowDash() {
+        connectWithVector("Sparse")
+        Espresso.pressBack()
+        composeRule.onNodeWithText("Setup").performClick()
+        composeRule.onNodeWithText("Start Session").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("HRV(3s RMSSD): —").assertExists()
+    }
+
+    @Test
     fun disconnectReconnectStateTransitions() {
         connectWithVector("Disconnect")
         composeRule.waitUntil(10_000) {
