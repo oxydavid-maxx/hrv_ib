@@ -38,6 +38,12 @@ jobs:
           fi
           echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
 
+      - name: Print Android environment
+        run: |
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          "$SDKMANAGER" --list | head -n 50
+
       - name: Accept licenses
         run: yes | "$SDKMANAGER" --licenses
 
@@ -55,14 +61,22 @@ jobs:
       - name: Ensure gradlew is executable
         run: chmod +x ./gradlew
 
-      - name: Assemble
-        run: ./gradlew assembleDebug assembleRelease --stacktrace
+      - name: Write local.properties
+        run: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          cat local.properties
+
+      - name: Assemble debug
+        run: ./gradlew assembleDebug --no-daemon --stacktrace --info
+
+      - name: Assemble release
+        run: ./gradlew assembleRelease --no-daemon --stacktrace --info
 
       - name: Unit tests
-        run: ./gradlew test --stacktrace
+        run: ./gradlew test --no-daemon --stacktrace --info
 
       - name: Lint
-        run: ./gradlew lint --stacktrace
+        run: ./gradlew lint --no-daemon --stacktrace --info
 
       - name: Upload build, lint and unit reports
         if: always()
@@ -70,6 +84,9 @@ jobs:
         with:
           name: reports-build-lint-unit
           path: |
+            hrv_ib/**/build/reports/**
+            hrv_ib/**/build/test-results/**
+            hrv_ib/**/build/outputs/androidTest-results/**
             **/build/outputs/apk/release/*.apk
             **/build/reports/**
             **/build/test-results/**
@@ -106,6 +123,12 @@ jobs:
           fi
           echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
 
+      - name: Print Android environment
+        run: |
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          "$SDKMANAGER" --list | head -n 50
+
       - name: Accept licenses
         run: yes | "$SDKMANAGER" --licenses
 
@@ -122,6 +145,11 @@ jobs:
       - name: Ensure gradlew is executable
         run: chmod +x ./gradlew
 
+      - name: Write local.properties
+        run: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          cat local.properties
+
       - name: Connected tests on emulator (fallback API 34)
         uses: ReactiveCircus/android-emulator-runner@v2
         with:
@@ -131,7 +159,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-boot-timeout: 1200
-          script: ./gradlew connectedDebugAndroidTest --stacktrace
+          script: ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace --info
 
       - name: Upload androidTest reports
         if: always()
@@ -139,6 +167,9 @@ jobs:
         with:
           name: reports-androidTest
           path: |
+            hrv_ib/**/build/reports/**
+            hrv_ib/**/build/test-results/**
+            hrv_ib/**/build/outputs/androidTest-results/**
             **/build/reports/**
             **/build/test-results/**
             **/build/outputs/androidTest-results/**
