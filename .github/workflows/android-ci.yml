@@ -185,6 +185,16 @@ jobs:
 
       - name: Upload connected-android-test log
         if: always()
+        run: |
+          mkdir -p hrv_ib
+          if [ ! -f hrv_ib/connected-android-test.log ]; then
+            echo "connected-android-test.log was not produced by emulator runner." > hrv_ib/connected-android-test.log
+            echo "This usually means emulator startup failed before custom script execution." >> hrv_ib/connected-android-test.log
+          fi
+          ls -la hrv_ib
+
+      - name: Upload connected-android-test log artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: connected-android-test-log
