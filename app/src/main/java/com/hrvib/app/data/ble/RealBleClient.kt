@@ -1,6 +1,7 @@
 package com.hrvib.app.data.ble
 
 import android.annotation.SuppressLint
+import android.Manifest
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
@@ -13,7 +14,10 @@ import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.content.getSystemService
+import androidx.core.content.ContextCompat
 import com.hrvib.app.domain.BleDevice
 import com.hrvib.app.domain.ConnectionState
 import com.hrvib.app.domain.HrRrSample
@@ -46,8 +50,32 @@ class RealBleClient(
     private val hrMeasurementUuid = UUID.fromString("00002a37-0000-1000-8000-00805f9b34fb")
     private val cccdUuid = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
 
+    private fun hasBlePermission(permission: String): Boolean {
+        return ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun hasScanPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            hasBlePermission(Manifest.permission.BLUETOOTH_SCAN)
+        } else {
+            true
+        }
+    }
+
+    private fun hasConnectPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            hasBlePermission(Manifest.permission.BLUETOOTH_CONNECT)
+        } else {
+            true
+        }
+    }
+
     @SuppressLint("MissingPermission")
     override suspend fun startScan() {
+        if (!hasScanPermission()) {
+            _connectionState.value = ConnectionState.PermissionDenied("BLUETOOTH_SCAN denied")
+            return
+        }
         val scanner = adapter?.bluetoothLeScanner ?: return
         _connectionState.value = ConnectionState.Scanning
         scanner.startScan(null, ScanSettings.Builder().build(), scanCallback)
@@ -55,6 +83,7 @@ class RealBleClient(
 
     @SuppressLint("MissingPermission")
     override suspend fun stopScan() {
+        if (!hasScanPermission()) return
         adapter?.bluetoothLeScanner?.stopScan(scanCallback)
         if (_connectionState.value == ConnectionState.Scanning) {
             _connectionState.value = ConnectionState.Disconnected
@@ -63,6 +92,10 @@ class RealBleClient(
 
     @SuppressLint("MissingPermission")
     override suspend fun connect(deviceId: String) {
+        if (!hasConnectPermission()) {
+            _connectionState.value = ConnectionState.PermissionDenied("BLUETOOTH_CONNECT denied")
+            return
+        }
         stopScan()
         val device = adapter?.getRemoteDevice(deviceId) ?: return
         _connectionState.value = ConnectionState.Connecting
@@ -71,6 +104,7 @@ class RealBleClient(
 
     @SuppressLint("MissingPermission")
     override suspend fun disconnect() {
+        if (!hasConnectPermission()) return
         gatt?.disconnect()
         gatt?.close()
         gatt = null
@@ -90,6 +124,10 @@ class RealBleClient(
     private val gattCallback = object : BluetoothGattCallback() {
         @SuppressLint("MissingPermission")
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+            if (!hasConnectPermission()) {
+                _connectionState.value = ConnectionState.PermissionDenied("BLUETOOTH_CONNECT denied")
+                return
+            }
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 _connectionState.value = ConnectionState.Connected
                 gatt.discoverServices()
@@ -100,6 +138,10 @@ class RealBleClient(
 
         @SuppressLint("MissingPermission")
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+            if (!hasConnectPermission()) {
+                _connectionState.value = ConnectionState.PermissionDenied("BLUETOOTH_CONNECT denied")
+                return
+            }
             val characteristic = gatt.getService(hrServiceUuid)?.getCharacteristic(hrMeasurementUuid) ?: return
             gatt.setCharacteristicNotification(characteristic, true)
             val descriptor = characteristic.getDescriptor(cccdUuid) ?: return
