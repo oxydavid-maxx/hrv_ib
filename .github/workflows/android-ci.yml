@@ -205,6 +205,10 @@ jobs:
             [ -z "$line" ] && continue
             echo "::error title=Connected test failure detail::$line"
           done < <(grep -m5 -E " > .* FAILED|There were failing tests|FAILURES!!!|java.lang.AssertionError|junit.framework.AssertionFailedError" connected-android-test.log || true)
+          while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            echo "::error title=AndroidTest XML failure detail::$line"
+          done < <(grep -R -m5 -n "<failure" app/build/outputs/androidTest-results 2>/dev/null || true)
           echo "Last 30 log lines:"
           tail -n 30 connected-android-test.log
 
@@ -214,5 +218,5 @@ jobs:
         with:
           name: reports-androidTest
           path: |
-            **/build/reports/androidTests/**
-            **/build/outputs/androidTest-results/**
+            app/build/reports/androidTests/**
+            app/build/outputs/androidTest-results/**
