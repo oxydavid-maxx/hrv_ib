@@ -150,6 +150,12 @@ jobs:
           echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
           cat local.properties
 
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
       - name: Connected tests on emulator (fallback API 34)
         uses: ReactiveCircus/android-emulator-runner@v2
         with:
@@ -171,5 +177,7 @@ jobs:
             hrv_ib/**/build/test-results/**
             hrv_ib/**/build/outputs/androidTest-results/**
             **/build/reports/**
+            **/build/reports/androidTests/**
             **/build/test-results/**
             **/build/outputs/androidTest-results/**
+            **/build/outputs/androidTest-results/connected/**
