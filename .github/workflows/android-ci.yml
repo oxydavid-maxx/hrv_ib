@@ -181,6 +181,25 @@ jobs:
           name: connected-android-test-log
           path: connected-android-test.log
 
+      - name: Summarize connected failure
+        if: always()
+        shell: bash
+        run: |
+          if [ ! -f connected-android-test.log ]; then
+            echo "::error title=Connected log missing::connected-android-test.log was not generated"
+            exit 0
+          fi
+          FIRST_FAILED_TASK="$(grep -m1 -o "Execution failed for task '[^']*'" connected-android-test.log || true)"
+          if [ -z "$FIRST_FAILED_TASK" ]; then
+            FIRST_FAILED_TASK="$(grep -m1 -o "Task :[^ ]* FAILED" connected-android-test.log || true)"
+          fi
+          if [ -z "$FIRST_FAILED_TASK" ]; then
+            FIRST_FAILED_TASK="not found"
+          fi
+          echo "::error title=First failed Gradle task::$FIRST_FAILED_TASK"
+          echo "Last 30 log lines:"
+          tail -n 30 connected-android-test.log
+
       - name: Upload androidTest reports
         if: always()
         uses: actions/upload-artifact@v4
