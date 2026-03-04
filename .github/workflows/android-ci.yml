@@ -168,18 +168,19 @@ jobs:
           script: |
             set -o pipefail
             mkdir -p hrv_ib
-            adb wait-for-device
-            adb shell settings put global window_animation_scale 0
-            adb shell settings put global transition_animation_scale 0
-            adb shell settings put global animator_duration_scale 0
-            adb devices 2>&1 | tee -a hrv_ib/connected-android-test.log
-            adb shell getprop ro.build.version.release 2>&1 | tee -a hrv_ib/connected-android-test.log
-            adb shell getprop ro.build.version.sdk 2>&1 | tee -a hrv_ib/connected-android-test.log
+            : > hrv_ib/connected-android-test.log
+            adb wait-for-device 2>&1 | tee -a hrv_ib/connected-android-test.log || true
+            adb shell settings put global window_animation_scale 0 2>&1 | tee -a hrv_ib/connected-android-test.log || true
+            adb shell settings put global transition_animation_scale 0 2>&1 | tee -a hrv_ib/connected-android-test.log || true
+            adb shell settings put global animator_duration_scale 0 2>&1 | tee -a hrv_ib/connected-android-test.log || true
+            adb devices 2>&1 | tee -a hrv_ib/connected-android-test.log || true
+            adb shell getprop ro.build.version.release 2>&1 | tee -a hrv_ib/connected-android-test.log || true
+            adb shell getprop ro.build.version.sdk 2>&1 | tee -a hrv_ib/connected-android-test.log || true
             set +e
             ./gradlew --no-daemon --stacktrace --info connectedDebugAndroidTest 2>&1 | tee -a hrv_ib/connected-android-test.log
             GRADLE_EXIT=${PIPESTATUS[0]}
             set -e
-            adb logcat -d | tail -n 300 2>&1 | tee -a hrv_ib/connected-android-test.log
+            adb logcat -d | tail -n 300 2>&1 | tee -a hrv_ib/connected-android-test.log || true
             exit $GRADLE_EXIT
 
       - name: Upload connected-android-test log
@@ -197,3 +198,5 @@ jobs:
           path: |
             hrv_ib/**/build/reports/androidTests/**
             hrv_ib/**/build/outputs/androidTest-results/**
+            **/build/reports/androidTests/**
+            **/build/outputs/androidTest-results/**
