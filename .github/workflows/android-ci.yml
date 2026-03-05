@@ -87,6 +87,7 @@ jobs:
             hrv_ib/**/build/reports/**
             hrv_ib/**/build/test-results/**
             hrv_ib/**/build/outputs/androidTest-results/**
+            **/build/outputs/apk/debug/*.apk
             **/build/outputs/apk/release/*.apk
             **/build/reports/**
             **/build/test-results/**

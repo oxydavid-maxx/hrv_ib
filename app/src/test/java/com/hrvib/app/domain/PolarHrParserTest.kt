@@ -25,4 +25,15 @@ class PolarHrParserTest {
         assertThat(parsed.hrBpm).isEqualTo(70)
         assertThat(parsed.rrIntervalsMs).isEmpty()
     }
+
+    @Test
+    fun parses16BitHrCorrectly() {
+        val payload = byteArrayOf(
+            0x01, // flags: 16-bit HR, no RR
+            0x2C, 0x01 // HR 300
+        )
+        val parsed = PolarHrParser.parse(payload, 1234L)
+        assertThat(parsed.hrBpm).isEqualTo(300)
+        assertThat(parsed.rrIntervalsMs).isEmpty()
+    }
 }

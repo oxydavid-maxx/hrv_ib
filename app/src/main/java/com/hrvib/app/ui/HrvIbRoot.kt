@@ -112,8 +112,8 @@ private fun HomeScreen(
             }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = onOpenSetup) { Text("Setup") }
-                    Button(onClick = onOpenDevice) { Text("Device") }
+                    Button(onClick = onOpenSetup, modifier = Modifier.testTag("go_setup")) { Text("Setup") }
+                    Button(onClick = onOpenDevice, modifier = Modifier.testTag("go_device")) { Text("Device") }
                 }
             }
             item {
@@ -150,8 +150,11 @@ private fun HomeScreen(
             item {
                 Text("Time Series: Avg/Peak HRV", fontWeight = FontWeight.Bold)
                 Text("Time buckets: ${series.size}", modifier = Modifier.testTag("timeseries_count"))
-                LineComposeChart(series.map { it.bucket.toFloat() to it.avgHRV.toFloat() }, Color.Cyan)
-                LineComposeChart(series.map { it.bucket.toFloat() to it.peakHRV.toFloat() }, Color.Magenta)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag("timeseries_legend")) {
+                    Text("Avg HRV", color = Color.Cyan, modifier = Modifier.testTag("timeseries_legend_avg"))
+                    Text("Peak HRV", color = Color.Magenta, modifier = Modifier.testTag("timeseries_legend_peak"))
+                }
+                TimeSeriesComposeChart(series.map { it.avgHRV.toFloat() }, series.map { it.peakHRV.toFloat() })
             }
             item {
                 Text("Session History", fontWeight = FontWeight.Bold)
@@ -219,18 +222,18 @@ private fun DeviceScreen(vm: MainViewModel) {
         }
         Text("Connection: $state", modifier = Modifier.testTag("connection_status"))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = vm::startScan) { Text("Scan") }
-            OutlinedButton(onClick = vm::disconnect) { Text("Disconnect") }
+            Button(onClick = vm::startScan, modifier = Modifier.testTag("scan_button")) { Text("Scan") }
+            OutlinedButton(onClick = vm::disconnect, modifier = Modifier.testTag("disconnect_button")) { Text("Disconnect") }
         }
         Text("Demo vector")
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            OutlinedButton(onClick = { vm.setFakeVector("hr_only.json") }) { Text("HR only") }
-            OutlinedButton(onClick = { vm.setFakeVector("hr_rr_valid.json") }) { Text("HR+RR") }
-            OutlinedButton(onClick = { vm.setFakeVector("disconnect_reconnect.json") }) { Text("Disconnect") }
+            OutlinedButton(onClick = { vm.setFakeVector("hr_only.json") }, modifier = Modifier.testTag("vector_hr_only")) { Text("HR only") }
+            OutlinedButton(onClick = { vm.setFakeVector("hr_rr_valid.json") }, modifier = Modifier.testTag("vector_hr_rr")) { Text("HR+RR") }
+            OutlinedButton(onClick = { vm.setFakeVector("disconnect_reconnect.json") }, modifier = Modifier.testTag("vector_disconnect")) { Text("Disconnect") }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            OutlinedButton(onClick = { vm.setFakeVector("artifact_rr.json") }) { Text("Artifact") }
-            OutlinedButton(onClick = { vm.setFakeVector("sparse_rr.json") }) { Text("Sparse") }
+            OutlinedButton(onClick = { vm.setFakeVector("artifact_rr.json") }, modifier = Modifier.testTag("vector_artifact")) { Text("Artifact") }
+            OutlinedButton(onClick = { vm.setFakeVector("sparse_rr.json") }, modifier = Modifier.testTag("vector_sparse")) { Text("Sparse") }
         }
         devices.forEach { d ->
             Card(
@@ -265,19 +268,20 @@ private fun SessionSetupScreen(vm: MainViewModel, onStart: () -> Unit) {
             title = "Metronome BPM ${"%.1f".format(config.metronomeBpm)}",
             value = config.metronomeBpm.toFloat(),
             range = 20f..120f,
-            steps = 999
+            steps = 999,
+            sliderTag = "setup_bpm_slider"
         ) { v ->
             vm.updateConfig(config.copy(metronomeBpm = ((v * 10).roundToInt()) / 10.0))
         }
-        Stepper("Inhale beats", config.inhaleBeats, 1, 12) { vm.updateConfig(config.copy(inhaleBeats = it)) }
-        Stepper("Exhale beats", config.exhaleBeats, 1, 12) { vm.updateConfig(config.copy(exhaleBeats = it)) }
-        Stepper("Duration (min)", config.durationMinutes, 1, 60) { vm.updateConfig(config.copy(durationMinutes = it)) }
-        Text("Ratio: ${config.inhaleBeats}:${config.exhaleBeats}")
-        Text("Breaths/min: ${"%.1f".format(config.breathsPerMinute)}")
+        Stepper("Inhale beats", config.inhaleBeats, 1, 12, "inhale_beats") { vm.updateConfig(config.copy(inhaleBeats = it)) }
+        Stepper("Exhale beats", config.exhaleBeats, 1, 12, "exhale_beats") { vm.updateConfig(config.copy(exhaleBeats = it)) }
+        Stepper("Duration (min)", config.durationMinutes, 1, 60, "duration_min") { vm.updateConfig(config.copy(durationMinutes = it)) }
+        Text("Ratio: ${config.inhaleBeats}:${config.exhaleBeats}", modifier = Modifier.testTag("setup_ratio"))
+        Text("Breaths/min: ${"%.1f".format(config.breathsPerMinute)}", modifier = Modifier.testTag("setup_breaths_per_min"))
         Button(onClick = {
             vm.startSession()
             onStart()
-        }) { Text("Start Session") }
+        }, modifier = Modifier.testTag("start_session")) { Text("Start Session") }
     }
 }
 
@@ -291,8 +295,8 @@ private fun LiveScreen(vm: MainViewModel, onFinish: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text("Live Session", style = MaterialTheme.typography.headlineSmall)
-        Text("Phase: ${if (live.phase == BreathPhase.Inhale) "Inhale" else "Exhale"}")
-        Text("Time left: ${live.remainingMs / 1000}s")
+        Text("Phase: ${if (live.phase == BreathPhase.Inhale) "Inhale" else "Exhale"}", modifier = Modifier.testTag("live_phase"))
+        Text("Time left: ${live.remainingMs / 1000}s", modifier = Modifier.testTag("live_countdown"))
         Text("HR: ${live.currentHr ?: "--"}", modifier = Modifier.testTag("live_hr"))
         Text(
             "HRV(3s RMSSD): ${live.smoothedHrv?.let { "%.1f".format(it) } ?: "—"}",
@@ -300,9 +304,9 @@ private fun LiveScreen(vm: MainViewModel, onFinish: () -> Unit) {
         )
         RrWaveChart(live.rrWave)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = vm::stopSession) { Text("Stop") }
+            Button(onClick = vm::stopSession, modifier = Modifier.testTag("stop_session")) { Text("Stop") }
             if (!live.inSession) {
-                OutlinedButton(onClick = onFinish) { Text("Summary") }
+                OutlinedButton(onClick = onFinish, modifier = Modifier.testTag("open_summary")) { Text("Summary") }
             }
         }
     }
@@ -355,31 +359,38 @@ private fun RangeSelector(range: RangeFilter, onSelected: (RangeFilter) -> Unit)
         options.forEach { option ->
             val selected = option == range
             if (selected) {
-                Button(onClick = { onSelected(option) }) { Text(option.name) }
+                Button(onClick = { onSelected(option) }, modifier = Modifier.testTag("range_${option.name.lowercase()}")) { Text(option.name) }
             } else {
-                OutlinedButton(onClick = { onSelected(option) }) { Text(option.name) }
+                OutlinedButton(onClick = { onSelected(option) }, modifier = Modifier.testTag("range_${option.name.lowercase()}")) { Text(option.name) }
             }
         }
     }
 }
 
 @Composable
-private fun Stepper(title: String, value: Int, min: Int, max: Int, onValue: (Int) -> Unit) {
+private fun Stepper(title: String, value: Int, min: Int, max: Int, tagPrefix: String, onValue: (Int) -> Unit) {
     Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-        Text(title, modifier = Modifier.width(140.dp))
-        OutlinedButton(onClick = { onValue((value - 1).coerceAtLeast(min)) }) { Text("-") }
+        Text(title, modifier = Modifier.width(140.dp).testTag("${tagPrefix}_title"))
+        OutlinedButton(onClick = { onValue((value - 1).coerceAtLeast(min)) }, modifier = Modifier.testTag("${tagPrefix}_dec")) { Text("-") }
         Spacer(Modifier.width(8.dp))
-        Text(value.toString())
+        Text(value.toString(), modifier = Modifier.testTag("${tagPrefix}_value"))
         Spacer(Modifier.width(8.dp))
-        OutlinedButton(onClick = { onValue((value + 1).coerceAtMost(max)) }) { Text("+") }
+        OutlinedButton(onClick = { onValue((value + 1).coerceAtMost(max)) }, modifier = Modifier.testTag("${tagPrefix}_inc")) { Text("+") }
     }
 }
 
 @Composable
-private fun NumberSlider(title: String, value: Float, range: ClosedFloatingPointRange<Float>, steps: Int, onValue: (Float) -> Unit) {
+private fun NumberSlider(
+    title: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    steps: Int,
+    sliderTag: String,
+    onValue: (Float) -> Unit
+) {
     Column {
         Text(title)
-        Slider(value = value, onValueChange = onValue, valueRange = range, steps = steps)
+        Slider(value = value, onValueChange = onValue, valueRange = range, steps = steps, modifier = Modifier.testTag(sliderTag))
     }
 }
 
@@ -428,22 +439,27 @@ private fun ScatterComposeChart(
 }
 
 @Composable
-private fun LineComposeChart(points: List<Pair<Float, Float>>, color: Color) {
+private fun TimeSeriesComposeChart(avgPoints: List<Float>, peakPoints: List<Float>) {
     androidx.compose.ui.viewinterop.AndroidView(
         factory = { context ->
             LineChart(context).apply {
                 description.isEnabled = false
-                legend.isEnabled = false
+                legend.isEnabled = true
             }
         },
         modifier = Modifier.fillMaxWidth().height(160.dp).testTag("timeseries_chart"),
         update = { chart ->
-            val entries = points.mapIndexed { index, p -> Entry(index.toFloat(), p.second) }
-            val set = LineDataSet(entries, "").apply {
-                this.color = color.toArgb()
+            val avgEntries = avgPoints.mapIndexed { index, y -> Entry(index.toFloat(), y) }
+            val peakEntries = peakPoints.mapIndexed { index, y -> Entry(index.toFloat(), y) }
+            val avgSet = LineDataSet(avgEntries, "Avg HRV").apply {
+                color = Color.Cyan.toArgb()
                 setDrawCircles(true)
             }
-            chart.data = LineData(set)
+            val peakSet = LineDataSet(peakEntries, "Peak HRV").apply {
+                color = Color.Magenta.toArgb()
+                setDrawCircles(true)
+            }
+            chart.data = LineData(avgSet, peakSet)
             chart.invalidate()
         }
     )

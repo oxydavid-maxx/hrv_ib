@@ -26,7 +26,8 @@ Workflow: `.github/workflows/android-ci.yml`
 
 It runs on push/PR:
 
-- `./gradlew assembleDebug assembleRelease`
+- `./gradlew assembleDebug`
+- `./gradlew assembleRelease`
 - `./gradlew test`
 - `./gradlew lint`
 - `./gradlew connectedDebugAndroidTest` (headless emulator, Fake BLE only)
@@ -36,8 +37,10 @@ It runs on push/PR:
 Download from each workflow run:
 
 - release APK (`**/build/outputs/apk/release/*.apk`)
+- debug APK (`**/build/outputs/apk/debug/*.apk`)
 - lint/unit/androidTest reports (`**/build/reports/**`, `**/build/test-results/**`)
 - androidTest outputs (`**/build/outputs/androidTest-results/**`)
+- connected test full log (`connected-android-test.log`, uploaded even when tests fail)
 
 ### Local optional runner
 
@@ -53,6 +56,7 @@ Both scripts perform preflight checks for SDK path (`sdk.dir`, `ANDROID_SDK_ROOT
 - Uses Heart Rate Service `0x180D` and Heart Rate Measurement characteristic `0x2A37`.
 - RR intervals from `2A37` are parsed from `1/1024 sec` to `ms`.
 - Android 12+ permissions: `BLUETOOTH_SCAN`, `BLUETOOTH_CONNECT`.
+- CI/androidTest uses Fake BLE by code path (not UI toggle): `BuildConfig.USE_FAKE_BLE=true` in debug build type, wired through `AppModule` -> `BleGateway(forceFake = true)`.
 - If RR is absent, HR still displays and rolling HRV displays `—`.
 
 ## HRV math and cleaning rules
@@ -83,6 +87,15 @@ Both scripts perform preflight checks for SDK path (`sdk.dir`, `ANDROID_SDK_ROOT
    - `avgHRV = mean(cleaned_epoch_hrv)`
    - `peakHRV = max(cleaned_epoch_hrv)`
    - `avgHR = mean(60000 / rr_ms)` after artifact cleaning
+
+### Home chart aggregation/bucketing
+
+- Scatter chart uses one point per session (`x=breathsPerMin`, `y=avgHRV`), filtered by `day/week/month/year` + soft-delete flag.
+- Time-series buckets:
+  - `Day`: hourly buckets.
+  - `Week`: daily buckets.
+  - `Month`: daily buckets.
+  - `Year`: weekly buckets.
 
 ## Screens
 
