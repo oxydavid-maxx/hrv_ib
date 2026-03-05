@@ -1,40 +1,36 @@
 package com.hrvib.app.data
 
-import androidx.room.Room
-import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
-import com.hrvib.app.data.db.AppDatabase
+import com.hrvib.app.data.db.EpochDao
+import com.hrvib.app.data.db.EpochStatEntity
+import com.hrvib.app.data.db.RrDao
+import com.hrvib.app.data.db.RrSampleEntity
+import com.hrvib.app.data.db.SessionDao
 import com.hrvib.app.data.db.SessionEntity
 import com.hrvib.app.domain.HrvMath
 import com.hrvib.app.domain.RangeFilter
 import com.hrvib.app.domain.SessionConfig
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
-import org.junit.After
 import org.junit.Before
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
 
 @OptIn(ExperimentalCoroutinesApi::class)
-@RunWith(RobolectricTestRunner::class)
 class SessionRepositoryTest {
-    private lateinit var db: AppDatabase
+    private lateinit var sessionDao: FakeSessionDao
+    private lateinit var rrDao: FakeRrDao
+    private lateinit var epochDao: FakeEpochDao
     private lateinit var repository: SessionRepository
 
     @Before
     fun setUp() {
-        db = Room.inMemoryDatabaseBuilder(
-            ApplicationProvider.getApplicationContext(),
-            AppDatabase::class.java
-        ).allowMainThreadQueries().build()
-        repository = SessionRepository(db.sessionDao(), db.rrDao(), db.epochDao())
-    }
-
-    @After
-    fun tearDown() {
-        db.close()
+        sessionDao = FakeSessionDao()
+        rrDao = FakeRrDao()
+        epochDao = FakeEpochDao()
+        repository = SessionRepository(sessionDao, rrDao, epochDao)
     }
 
     @Test
@@ -49,7 +45,7 @@ class SessionRepositoryTest {
 
         val session = repository.getSession(id)
         val rr = repository.getRrBySession(id)
-        val epoch = db.epochDao().bySession(id)
+        val epoch = epochDao.bySession(id)
 
         assertThat(session).isNotNull()
         assertThat(session!!.durationMin).isEqualTo(7)
@@ -164,7 +160,7 @@ class SessionRepositoryTest {
         breaths: Double,
         deleted: Boolean = false
     ): Long {
-        return db.sessionDao().insert(
+        return sessionDao.insert(
             SessionEntity(
                 startTime = startTime,
                 durationMin = 5,
@@ -178,5 +174,71 @@ class SessionRepositoryTest {
                 isDeleted = deleted
             )
         )
+    }
+
+    private class FakeSessionDao : SessionDao {
+        private val sessions = mutableListOf<SessionEntity>()
+        private val sessionFlow = MutableStateFlow<List<SessionEntity>>(emptyList())
+        private var nextId = 1L
+
+        override suspend fun insert(session: SessionEntity): Long {
+            val stored = session.copy(id = nextId++)
+            sessions += stored
+            emit()
+            return stored.id
+        }
+
+        override suspend fun update(session: SessionEntity) {
+            val idx = sessions.indexOfFirst { it.id == session.id }
+            if (idx >= 0) {
+                sessions[idx] = session
+                emit()
+            }
+        }
+
+        override suspend fun getById(id: Long): SessionEntity? = sessions.find { it.id == id }
+
+        override fun observeSessions(fromTime: Long, showExcluded: Boolean) = sessionFlow.map { all ->
+            all.filter { it.startTime >= fromTime && (showExcluded || !it.isDeleted) }
+                .sortedBy { it.startTime }
+        }
+
+        override suspend fun setDeleted(id: Long, deleted: Boolean) {
+            val idx = sessions.indexOfFirst { it.id == id }
+            if (idx >= 0) {
+                sessions[idx] = sessions[idx].copy(isDeleted = deleted)
+                emit()
+            }
+        }
+
+        private fun emit() {
+            sessionFlow.value = sessions.toList()
+        }
+    }
+
+    private class FakeRrDao : RrDao {
+        private val rr = mutableListOf<RrSampleEntity>()
+        private var nextId = 1L
+
+        override suspend fun insertAll(items: List<RrSampleEntity>) {
+            items.forEach { rr += it.copy(id = nextId++) }
+        }
+
+        override suspend fun bySession(sessionId: Long): List<RrSampleEntity> {
+            return rr.filter { it.sessionId == sessionId }.sortedBy { it.timestampMs }
+        }
+    }
+
+    private class FakeEpochDao : EpochDao {
+        private val epochs = mutableListOf<EpochStatEntity>()
+        private var nextId = 1L
+
+        override suspend fun insertAll(items: List<EpochStatEntity>) {
+            items.forEach { epochs += it.copy(id = nextId++) }
+        }
+
+        override suspend fun bySession(sessionId: Long): List<EpochStatEntity> {
+            return epochs.filter { it.sessionId == sessionId }.sortedBy { it.timestampMs }
+        }
     }
 }
