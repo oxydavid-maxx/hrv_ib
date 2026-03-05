@@ -73,7 +73,8 @@ jobs:
         run: ./gradlew assembleRelease --no-daemon --stacktrace --info
 
       - name: Unit tests
-        run: ./gradlew test --no-daemon --stacktrace --info
+        run: |
+          bash -lc "set -o pipefail; ./gradlew --no-daemon --stacktrace --info test 2>&1 | tee unit-test.log; exit \${PIPESTATUS[0]}"
 
       - name: Lint
         run: ./gradlew lint --no-daemon --stacktrace --info
@@ -84,6 +85,7 @@ jobs:
         with:
           name: reports-build-lint-unit
           path: |
+            unit-test.log
             hrv_ib/**/build/reports/**
             hrv_ib/**/build/test-results/**
             hrv_ib/**/build/outputs/androidTest-results/**
@@ -91,6 +93,35 @@ jobs:
             **/build/outputs/apk/release/*.apk
             **/build/reports/**
             **/build/test-results/**
+
+      - name: Summarize build-lint-unit failure
+        if: always()
+        shell: bash
+        run: |
+          if [ ! -f unit-test.log ]; then
+            echo "::error title=Unit test log missing::unit-test.log was not generated"
+            exit 0
+          fi
+          FIRST_FAILED_TASK="$(grep -m1 -o "Execution failed for task '[^']*'" unit-test.log || true)"
+          if [ -z "$FIRST_FAILED_TASK" ]; then
+            FIRST_FAILED_TASK="$(grep -m1 -o "Task :[^ ]* FAILED" unit-test.log || true)"
+          fi
+          if [ -z "$FIRST_FAILED_TASK" ]; then
+            FIRST_FAILED_TASK="not found"
+          fi
+          echo "::error title=First failed Gradle task::$FIRST_FAILED_TASK"
+          while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            echo "::error title=Kotlin compile detail::$line"
+          done < <(grep -m8 -E "^e: | error: " unit-test.log || true)
+          while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            echo "::error title=Unit test failure detail::$line"
+          done < <(grep -m8 -E "> Task :.*test.* FAILED|There were failing tests|FAILURES!!!|AssertionError|expected:|but was:" unit-test.log || true)
+          while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            echo "::error title=Unit test XML failure detail::$line"
+          done < <(grep -R -m8 -n "<failure" app/build/test-results 2>/dev/null || true)
 
   connected-android-test:
     runs-on: ubuntu-latest
