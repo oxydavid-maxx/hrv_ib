@@ -3,16 +3,14 @@ package com.hrvib.app
 import android.Manifest
 import android.os.Build
 import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertTextContains
-import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onAllNodes
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.rule.GrantPermissionRule
+import androidx.compose.ui.semantics.SemanticsProperties
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -42,7 +40,7 @@ class AppUiTest {
             .performSemanticsAction(SemanticsActions.SetProgress) { setProgress ->
                 setProgress(55.1f)
             }
-        composeRule.onNodeWithText("Metronome BPM 55.1").assertExists()
+        composeRule.onNodeWithText("Metronome BPM 55.1").fetchSemanticsNode()
     }
 
     @Test
@@ -59,8 +57,8 @@ class AppUiTest {
         composeRule.onNodeWithTag("exhale_beats_dec").performClick()
 
         composeRule.onNodeWithTag("start_session").performClick()
-        composeRule.onNodeWithTag("live_wave").assertExists()
-        composeRule.onNodeWithTag("live_hr").assertExists()
+        composeRule.onNodeWithTag("live_wave").fetchSemanticsNode()
+        composeRule.onNodeWithTag("live_hr").fetchSemanticsNode()
         composeRule.waitUntil(6_000) {
             nodeTextOrNull("live_phase")?.contains("Exhale") == true
         }
@@ -69,7 +67,7 @@ class AppUiTest {
         }
         composeRule.onNodeWithTag("stop_session").performClick()
         composeRule.onNodeWithTag("open_summary").performClick()
-        composeRule.onNodeWithText("Session Summary").assertExists()
+        composeRule.onNodeWithText("Session Summary").fetchSemanticsNode()
     }
 
     @Test
@@ -96,8 +94,8 @@ class AppUiTest {
 
     @Test
     fun homeRangeButtonsChangeScatterAndTimeSeriesCountsAndLegendVisible() {
-        composeRule.onNodeWithTag("timeseries_legend_avg").assertExists()
-        composeRule.onNodeWithTag("timeseries_legend_peak").assertExists()
+        composeRule.onNodeWithTag("timeseries_legend_avg").fetchSemanticsNode()
+        composeRule.onNodeWithTag("timeseries_legend_peak").fetchSemanticsNode()
         val before = readCount("scatter_count")
         composeRule.onNodeWithTag("range_day").performClick()
         composeRule.waitForIdle()
@@ -117,7 +115,7 @@ class AppUiTest {
         composeRule.onNodeWithTag(vectorTag).performClick()
         composeRule.onNodeWithTag("scan_button").performClick()
         composeRule.waitUntil(6_000) {
-            composeRule.onAllNodes(hasTestTag("device_fake-polar-h10")).fetchSemanticsNodes().isNotEmpty()
+            runCatching { composeRule.onNodeWithTag("device_fake-polar-h10").fetchSemanticsNode() }.isSuccess
         }
         composeRule.onNodeWithTag("device_fake-polar-h10").performClick()
         composeRule.waitUntil(6_000) {
@@ -126,11 +124,12 @@ class AppUiTest {
     }
 
     private fun readCount(tag: String): Int {
-        val text = composeRule.onNodeWithTag(tag)
-            .fetchSemanticsNode()
-            .config
-            .getOrNull(androidx.compose.ui.semantics.SemanticsProperties.Text)
-            ?.joinToString("") { it.text }
+        val text = runCatching {
+            composeRule.onNodeWithTag(tag)
+                .fetchSemanticsNode()
+                .config[SemanticsProperties.Text]
+                .joinToString("") { textValue -> textValue.text }
+        }.getOrNull()
             ?: return -1
         return text.substringAfter(": ").toIntOrNull() ?: -1
     }
@@ -139,9 +138,8 @@ class AppUiTest {
         return runCatching {
             composeRule.onNodeWithTag(tag)
                 .fetchSemanticsNode()
-                .config
-                .getOrNull(androidx.compose.ui.semantics.SemanticsProperties.Text)
-                ?.joinToString("") { it.text }
+                .config[SemanticsProperties.Text]
+                .joinToString("") { textValue -> textValue.text }
         }.getOrNull()
     }
 
